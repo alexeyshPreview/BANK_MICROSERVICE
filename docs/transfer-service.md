@@ -1,6 +1,6 @@
-## 💸 4. Transfer Service — Transaction API (Методы управления и аудита транзакций)
+## 💸 4.1 Transfer Service - Admin (Методы управления и аудита транзакций)
 
-Микросервис для работы с историей транзакций, переводами и аналитикой. Все запросы проходят через API Gateway на порту `8080`. В успешных ответах возвращаются данные на основе структуры `TransactionConvert`.
+Микросервис для работы с историей транзакций, переводами и аналитикой. Все запросы проходят через API Gateway на порту `8080`.
 
 ---
 
@@ -43,7 +43,7 @@
 
 * **Метод:** `GET`
 * **Путь через Gateway:** `http://localhost:8080/viewTransactionById`
-* **Request Parameters:** `tranId`
+* **Query-параметры:** `tranId`
 * **Тело запроса:** отсутствует
 * **Успешный ответ (`200 OK — TransactionConvert`):**
   ```json
@@ -65,7 +65,7 @@
 
 * **Метод:** `GET`
 * **Путь через Gateway:** `http://localhost:8080/viewTransactionsByUserId`
-* **Request Parameters:** `userId`
+* **Query-параметры:** `userId`
 * **Тело запроса:** отсутствует
 * **Успешный ответ (`200 OK — List<TransactionConvert>`):**
   ```json
@@ -89,7 +89,7 @@
 
 * **Метод:** `GET`
 * **Путь через Gateway:** `http://localhost:8080/viewTransactionsByAccountId`
-* **Request Parameters:** `accountId`
+* **Query-параметры:** `accountId`
 * **Тело запроса:** отсутствует
 * **Успешный ответ (`200 OK — List<TransactionConvert>`):**
   ```json
@@ -181,7 +181,7 @@
 
 * **Метод:** `GET`
 * **Путь через Gateway:** `http://localhost:8080/viewAmountUserTransfers`
-* **Request Parameters:** `userId`
+* **Query-параметры:** `userId`
 * **Пример полного пути:** `http://localhost:8080/viewAmountUserTransfers?userId=456e4567-e89b-12d3-a456-426614174111`
 * **Тело запроса:** отсутствует
 * **Успешный ответ (`200 OK — AmountUserRequest`):**
@@ -271,3 +271,113 @@
     }
   ]
   ```
+
+## 💸 4.2 Transfer Service - User Transfer API (Методы проведения операций пользователем)
+
+Эндпоинты для инициации финансовых операций (пополнение, снятие, переводы) и отслеживания их статусов. Все запросы проходят через API Gateway на порту `8080`, который автоматически прокидывает UUID авторизованного пользователя в заголовке `X-User-Id`.
+
+---
+
+### 1) Пополнить счет (Deposit)
+Инициирует операцию пополнения баланса на указанный банковский счет. 
+
+* **Метод:** `POST`
+* **Путь через Gateway:** `http://localhost:8080/transfer/deposit`
+* **Заголовки (Headers):**
+  * `X-User-Id: <UUID>` (Идентификатор пользователя, автоматически прокидываемый шлюзом Gateway)
+* **Тело запроса (`DepositRequest` JSON):**
+  ```json
+  {
+    "userId": "456e4567-e89b-12d3-a456-426614174111",
+    "accId": "111e4567-e89b-12d3-a456-426614174001",
+    "amount": 15000.00,
+    "currencyType": "RUB",
+    "userStatus": "ACTIVE",
+    "transactionId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+  }
+  ```
+* **Успешный ответ (`200 OK — Deposit request sent successfully`):**
+
+### 2) Снять деньги (Withdraw)
+Инициирует операцию снятия наличных или списания средств со счета пользователя.
+
+* **Метод:** `POST`
+* **Путь через Gateway:** `http://localhost:8080/transfer/withdraw`
+* **Заголовки (Headers):**
+  * `X-User-Id: <UUID>` (Идентификатор пользователя, автоматически прокидываемый шлюзом Gateway)
+* **Тело запроса (`WithdrawRequest` JSON):**
+  ```json
+  {
+    "userId": "456e4567-e89b-12d3-a456-426614174111",
+    "accId": "111e4567-e89b-12d3-a456-426614174001",
+    "amount": 2500.00,
+    "currencyType": "RUB",
+    "userStatus": "ACTIVE",
+    "transactionId": "f4g5h6i7-j8k9-0l1m-2n3o-4p5q6r7s8t9u"
+  }
+  ```
+* **Успешный ответ (`200 OK — Withdraw request sent successfully`):**
+
+### 3) Перевести деньги (Transfers)
+Инициирует операцию перевода денежных средств между двумя счетами (внутрибанковский перевод или перевод другому пользователю). Возвращает ID созданной транзакции.
+
+* **Метод:** `POST`
+* **Путь через Gateway:** `http://localhost:8080/transfer/transfers`
+* **Заголовки (Headers):**
+  * `X-User-Id: <UUID>` (Идентификатор пользователя, автоматически прокидываемый шлюзом Gateway)
+* **Тело запроса (`TransferRequest` JSON):**
+  ```json
+  {
+    "userId": "456e4567-e89b-12d3-a456-426614174111",
+    "fromAccId": "111e4567-e89b-12d3-a456-426614174001",
+    "toAccId": "222e4567-e89b-12d3-a456-426614174002",
+    "amount": 3400.00,
+    "currencyType": "RUB",
+    "userStatus": "ACTIVE",
+    "transactionId": "b9f8e7d6-c5b4-a3f2-e1d0-c9b8a7f6e5d4"
+  }
+  ```
+* **Успешный ответ (`200 OK — Transfer request sent successfully with id: b9f8e7d6-c5b4-a3f2-e1d0-c9b8a7f6e5d4`):**
+
+### 4) Посмотреть статус транзакции по ID (Request Status)
+Возвращает текущий статус транзакции из базы данных по её уникальному идентификатору, переданному в теле запроса.
+
+* **Метод:** `POST`
+* **Путь через Gateway:** `http://localhost:8080/transfer/getStatusTran`
+* **Тело запроса (`UuidIdRequest` JSON):**
+  ```json
+  {
+    "id": "b9f8e7d6-c5b4-a3f2-e1d0-c9b8a7f6e5d4"
+  }
+  ```
+* **Успешный ответ (`200 OK — TransactionStatusType`):**
+  ```json
+  {
+    SUCCESS
+  }
+   ```
+
+### 5) Посмотреть список своих транзакций (View Transactions By User ID)
+Возвращает список всех транзакций конкретного пользователя, переданного через Query-параметр `userId`. *(Требует проверки прав доступа на уровне Gateway, чтобы авторизованный пользователь мог запрашивать историю только своего аккаунта).*
+
+* **Метод:** `GET`
+* **Путь через Gateway:** `http://localhost:8080/transfer/viewTransactionsByUserId`
+* **Query-параметры:** `userId` 
+* **Тело запроса:** отсутствует
+* **Успешный ответ (`200 OK — List<TransactionConvert>`):**
+  ```json
+  [
+    {
+      "transferId": "b9f8e7d6-c5b4-a3f2-e1d0-c9b8a7f6e5d4",
+      "userId": "456e4567-e89b-12d3-a456-426614174111",
+      "fromAccId": "111e4567-e89b-12d3-a456-426614174001",
+      "toAccId": "222e4567-e89b-12d3-a456-426614174002",
+      "amount": 3400.00,
+      "currency": "RUB",
+      "transactionType": "TRANSFER",
+      "transactionStatus": "SUCCESS",
+      "timestamp": "2026-06-07T14:45:00"
+    }
+  ]
+  ```
+
